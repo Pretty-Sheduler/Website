@@ -3,105 +3,109 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>My Scheduler — Sign In</title>
+  <title>My Scheduler — Sign In (PKCE)</title>
   <style>
-    body { 
-      margin: 0; 
-      font-family: sans-serif; 
-      background: #f0f2f5; 
-      display: flex; 
-      align-items: center; 
-      justify-content: center; 
-      height: 100vh; 
-    }
-    #login-card {
-      background: #fff;
-      padding: 2rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      text-align: center;
-      width: 320px;
-    }
-    #login-card h2 { margin-bottom: 1rem; }
-    #login-card button {
-      width: 100%;
-      padding: 0.75rem;
-      background: #0069d9;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      font-size: 1rem;
-      cursor: pointer;
-    }
-    #login-card button:hover { background: #0053a6; }
-    #error { color: #d00; margin-top: 0.75rem; }
+    body { font-family:sans-serif; background:#f0f2f5; margin:0;
+           display:flex; align-items:center; justify-content:center; height:100vh; }
+    #container { background:#fff; padding:2rem; border-radius:8px;
+                 box-shadow:0 2px 10px rgba(0,0,0,0.1); text-align:center; width:320px; }
+    button { padding:0.75rem 1rem; background:#0069d9; color:#fff; border:none;
+             border-radius:4px; cursor:pointer; font-size:1rem; width:100%; }
+    button:hover { background:#0053a6; }
+    .error { color:#d00; margin-top:1rem; }
   </style>
-  <script>
-    // ── YOUR COGNITO CONFIG ────────────────────────────────────────
-    const DOMAIN_PREFIX = 'us-east-2hhsi9dslk';  // your Cognito domain prefix
-    const CLIENT_ID     = '6887lmtltpfidijg07a34bpps4';
-    const REDIRECT_URI  = 'https://pretty-sheduler.github.io/Website/';  // ensure this matches your callback URL in Cognito
-    const SCOPES        = 'openid email';
-    // ────────────────────────────────────────────────────────────────
-
-    // Build the Hosted UI URL
-    function launchLogin() {
-      const url = new URL(
-        `https://${DOMAIN_PREFIX}.auth.us-east-2.amazoncognito.com/oauth2/authorize`
-      );
-      url.searchParams.set('response_type', 'token');
-      url.searchParams.set('client_id', CLIENT_ID);
-      url.searchParams.set('redirect_uri', REDIRECT_URI);
-      url.searchParams.set('scope', SCOPES);
-      window.location.href = url.toString();
-    }
-
-    // Parse the URL hash fragment into an object
-    function parseHash(hash) {
-      return hash
-        .substring(1)
-        .split('&')
-        .map(pair => pair.split('='))
-        .reduce((acc, [k,v]) => {
-          acc[k] = decodeURIComponent(v);
-          return acc;
-        }, {});
-    }
-
-    // On page load, check if Cognito just redirected us back with tokens
-    window.addEventListener('DOMContentLoaded', () => {
-      const hash = window.location.hash;
-      if (hash.startsWith('#')) {
-        const params = parseHash(hash);
-        if (params.id_token) {
-          // Store the ID token and clear the hash
-          // after parsing the hash:
-            localStorage.setItem('idToken',     params.id_token);
-            localStorage.setItem('accessToken', params.access_token);
-
-          history.replaceState(null, '', REDIRECT_URI);
-          // Redirect to your protected app page
-          window.location.href = 'dashboard.html';
-          return;
-        }
-        if (params.error) {
-          document.getElementById('error').textContent =
-            params.error_description || params.error;
-        }
-      }
-      // Show the login UI if not already signed in
-      document.getElementById('login-card').style.display = 'block';
-    });
-  </script>
 </head>
-
 <body>
-  <div id="login-card" style="display:none;">
-    <h2>Welcome to My Scheduler</h2>
-    <button onclick="launchLogin()">
-      Log in with Email or Google
-    </button>
-    <div id="error"></div>
+  <div id="container">
+    <h2>Sign In</h2>
+    <button id="login">Log in with Email/Google</button>
+    <div id="error" class="error"></div>
   </div>
+
+  <script>
+  // ── CONFIG ──────────────────────────────────────────────────────
+    const DOMAIN_PREFIX = 'us-east-2hhsi9dslk';
+    const CLIENT_ID     = '6887lmtltpfidijg07a34bpps4';
+    const REDIRECT_URI  = 'https://pretty-sheduler.github.io/Website/'; 
+  const SCOPES        = 'openid email profile';
+  const AUTHORIZE_URL = `https://${DOMAIN_PREFIX}.auth.us-east-2.amazoncognito.com/oauth2/authorize`;
+  const TOKEN_URL     = `https://${DOMAIN_PREFIX}.auth.us-east-2.amazoncognito.com/oauth2/token`;
+  // ────────────────────────────────────────────────────────────────
+
+  // Helpers for PKCE
+  function base64UrlEncode(buffer) {
+    return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+      .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  }
+  async function sha256(buffer) {
+    return crypto.subtle.digest('SHA-256', new TextEncoder().encode(buffer));
+  }
+  function generateVerifier() {
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    return Array.from(array).map(b => ('00'+b.toString(16)).slice(-2)).join('');
+  }
+
+  document.getElementById('login').onclick = async () => {
+    // 1) Generate and store a code verifier
+    const codeVerifier = generateVerifier();
+    localStorage.setItem('pkce_verifier', codeVerifier);
+
+    // 2) Create a code challenge
+    const challengeBuffer = await sha256(codeVerifier);
+    const codeChallenge  = base64UrlEncode(challengeBuffer);
+
+    // 3) Redirect to Cognito's /authorize
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id:     CLIENT_ID,
+      redirect_uri:  REDIRECT_URI,
+      scope:         SCOPES,
+      code_challenge_method: 'S256',
+      code_challenge
+    });
+    window.location.href = `${AUTHORIZE_URL}?${params}`;
+  };
+
+  // On return from Cognito, parse `?code=…`
+  window.addEventListener('DOMContentLoaded', async () => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('code')) {
+      const code = params.get('code');
+      const verifier = localStorage.getItem('pkce_verifier');
+      if (!verifier) {
+        document.getElementById('error').textContent = 'PKCE verifier missing.';
+        return;
+      }
+
+      // 4) Exchange the code for tokens
+      const body = new URLSearchParams({
+        grant_type:    'authorization_code',
+        client_id:     CLIENT_ID,
+        code,
+        redirect_uri:  REDIRECT_URI,
+        code_verifier: verifier
+      });
+      try {
+        const resp = await fetch(TOKEN_URL, {
+          method: 'POST',
+          headers: { 'Content-Type':'application/x-www-form-urlencoded' },
+          body: body.toString()
+        });
+        if (!resp.ok) throw await resp.json();
+        const tokens = await resp.json();
+        // 5) Store tokens and redirect to dashboard
+        localStorage.setItem('idToken',     tokens.id_token);
+        localStorage.setItem('accessToken', tokens.access_token);
+        // clean up URL
+        window.history.replaceState({}, '', REDIRECT_URI);
+        window.location.href = 'dashboard.html';
+      } catch (err) {
+        document.getElementById('error').textContent =
+          err.error_description || JSON.stringify(err);
+      }
+    }
+  });
+  </script>
 </body>
 </html>
