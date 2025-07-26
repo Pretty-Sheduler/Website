@@ -55,6 +55,14 @@
   </div>
 
   <script>
+    const DOMAIN_PREFIX = 'us-east-2hhsi9dslk';
+    const CLIENT_ID     = '5sch6q2v6m5doglvndfvqssbhg';
+    const REDIRECT_URI  = 'https://pretty-sheduler.github.io/Website/';
+    const LOGOUT_URL = 
+        `https://${DOMAIN_PREFIX}.auth.us-east-2.amazoncognito.com/logout` +
+        `?client_id=${CLIENT_ID}` +
+        `&logout_uri=${encodeURIComponent(REDIRECT_URI)}`;
+
     // Parse JWT payload (base64url)  
     function parseJwt(token) {
       const base64Url = token.split('.')[1];
@@ -99,7 +107,7 @@
       // Logout handler
       document.getElementById('logout').addEventListener('click', () => {
         localStorage.removeItem('idToken');
-        window.location.href = 'index.html';
+        window.location.href = LOGOUT_URL;
       });
     });
   </script>
