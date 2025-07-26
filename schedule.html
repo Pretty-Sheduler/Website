@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Scheduler Visual Prototype</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 360px; margin: auto; position: relative; }
+    h3 { text-align: center; margin-bottom: .25rem; }
+
+    /* Calendar & Times initially hidden via CSS */
+    #cal { display: block; }
+    #times, #confirmation, #success { display: none; }
+
+    /* Calendar header */
+    #cal-header {
+      display:flex; justify-content: space-between; align-items: center;
+      margin-top: 1rem;
+    }
+    #cal-header span {
+      width:32px; height:32px; display:inline-flex;
+      align-items:center; justify-content:center;
+      cursor:pointer; border-radius:50%; transition: background .2s;
+    }
+    #cal-header span:hover { background: rgba(60,64,67,0.08); }
+    #month-year {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 1.5rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: #003262;
+      margin: 1rem 0;
+    }
+
+    /* Weekdays row */
+    #weekday {
+      display:grid; grid-template-columns:repeat(7,1fr);
+      gap:8px; margin-top:.5rem;
+      font-size:.75rem; text-transform:uppercase;
+      color:#5f6368; user-select:none;
+    }
+    #weekday div {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: .95rem;
+      font-weight: 600;
+      color: #003262;
+    }
+
+    /* Days grid */
+    #days {
+      display:grid; grid-template-columns:repeat(7,1fr);
+      gap:8px; margin-top:.25rem;
+    }
+    .day {
+      aspect-ratio: 1 / 1;
+      display: grid;
+      place-items: center;
+      font-size: .9rem;
+      border-radius: 0;
+    }
+    .day span {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+    .day.available {
+      color: #1a73e8;
+      background: rgba(26,115,232,0.1);
+      border: 1px solid rgba(26,115,232,1);
+      cursor: pointer;
+    }
+    .day.available:hover {
+      background: rgba(26,115,232,0.2);
+    }
+    .day.selected {
+      color: #fff !important;
+      background: #1a73e8;
+      border: 1px solid #1a73e8;
+    }
+
+    /* Time slots */
+    #times { margin-top:20px; }
+    .slot {
+      border:1px solid #4285f8; padding:8px; margin:4px 0;
+      text-align:center; cursor:pointer; border-radius:4px;
+    }
+    .slot:hover { background:#4285f8; color:#fff; }
+
+    /* Confirmation */
+    #confirmation { text-align: center; margin-top:1rem; }
+    #confirm-text { margin-bottom:1rem; }
+    #modeSelector { display: flex; justify-content: center; gap: 2rem; margin: 1rem 0; }
+    #modeSelector label { display: flex; align-items: center; gap: .3rem; cursor: pointer; }
+    #modeSelector input { margin: 0; }
+    #confirmation button {
+      border: 1px solid #4285f8; background: #fff; color: #4285f8;
+      padding:8px; margin:4px; border-radius:4px; cursor:pointer;
+    }
+    #confirmation button:hover { background:#4285f8; color:#fff; }
+
+    /* Success */
+    #success { text-align: center; margin-top:1rem; }
+  </style>
+</head>
+<body>
+
+  <!-- Calendar -->
+  <div id="cal">
+    <div id="cal-header">
+      <span id="prev">&lsaquo;</span>
+      <h3 id="month-year"></h3>
+      <span id="next">&rsaquo;</span>
+    </div>
+    <div id="weekday">
+      <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div>
+      <div>Thu</div><div>Fri</div><div>Sat</div>
+    </div>
+    <div id="days"></div>
+  </div>
+
+  <!-- Time slot picker -->
+  <div id="times">
+    <h3 id="day-label"></h3>
+    <div id="timeslots"></div>
+  </div>
+
+  <!-- Confirmation -->
+  <div id="confirmation">
+    <p id="confirm-text">Confirm your appointment?</p>
+    <div id="modeSelector">
+      <label><input type="radio" name="meetingMode" value="In-Person" checked>In-Person</label>
+      <label><input type="radio" name="meetingMode" value="Remote">Remote</label>
+    </div>
+    <button id="confirmBtn">Confirm</button>
+    <button id="cancelBtn">Cancel</button>
+  </div>
+
+  <!-- Success -->
+  <div id="success">
+    <p id="success-text">✅ Appointment booked!</p>
+  </div>
+
+  <script>
+    // ── state ───────────────────────────────────────────────────────
+    let current = new Date(),
+        selectedDate = null,
+        SLOT_TIMES = ["09:00 AM","10:00 AM","11:00 AM","01:00 PM","02:00 PM","03:00 PM"];
+    // ── helpers ─────────────────────────────────────────────────────
+    const pad = n => n < 10 ? '0' + n : '' + n;
+    const show = id => document.getElementById(id).style.display = 'block';
+    const hide = id => document.getElementById(id).style.display = 'none';
+    // ── calendar drawing ─────────────────────────────────────────────
+    function drawCalendar() {
+      const y = current.getFullYear(), m = current.getMonth();
+      const firstDay = new Date(y,m,1).getDay();
+      const daysInMonth = new Date(y,m+1,0).getDate();
+      document.getElementById('month-year').textContent =
+        current.toLocaleString('default',{month:'long',year:'numeric'});
+
+      const today = new Date();
+      const todayIso = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+
+      const daysDiv = document.getElementById('days');
+      daysDiv.innerHTML = '';
+      // blank slots
+      for(let i=0;i<firstDay;i++){
+        const blank = document.createElement('div');
+        blank.className='day'; daysDiv.appendChild(blank);
+      }
+      // numbered days
+      for(let d=1;d<=daysInMonth;d++){
+        const iso = `${y}-${pad(m+1)}-${pad(d)}`;
+        const el = document.createElement('div');
+        el.dataset.iso = iso;
+        el.innerHTML = `<span>${d}</span>`;
+        if(iso >= todayIso) {
+          el.className = 'day available';
+          el.onclick = () => pickDay(iso);
+        } else {
+          el.className = 'day';
+        }
+        daysDiv.appendChild(el);
+      }
+    }
+    // ── pick a day ───────────────────────────────────────────────────
+    function pickDay(iso) {
+      selectedDate = iso;
+      document.getElementById('day-label').textContent =
+        new Date(iso).toLocaleDateString(undefined,{
+          weekday:'long',month:'short',day:'numeric'});
+      renderSlots();
+      show('times');
+      highlightSelected();
+    }
+    function highlightSelected() {
+      document.querySelectorAll('.day.selected')
+              .forEach(el=>el.classList.remove('selected'));
+      const sel = document.querySelector(`.day[data-iso="${selectedDate}"]`);
+      if(sel) sel.classList.add('selected');
+    }
+    // ── render time slots ────────────────────────────────────────────
+    function renderSlots() {
+      const container = document.getElementById('timeslots');
+      container.innerHTML = '';
+      SLOT_TIMES.forEach(t => {
+        const btn = document.createElement('div');
+        btn.className = 'slot';
+        btn.textContent = t;
+        btn.onclick = () => confirmSlot(t);
+        container.appendChild(btn);
+      });
+    }
+    // ── confirmation / success ────────────────────────────────────────
+    function confirmSlot(time) {
+      hide('times'); show('confirmation');
+      document.getElementById('confirm-text').textContent =
+        `Confirm ${selectedDate} at ${time}?`;
+    }
+    document.getElementById('cancelBtn').onclick = () => {
+      hide('confirmation'); show('times');
+    };
+    document.getElementById('confirmBtn').onclick = () => {
+      hide('confirmation');
+      document.getElementById('success-text').textContent =
+        `✅ Booked ${selectedDate}!`;
+      show('success');
+    };
+    // ── month navigation ─────────────────────────────────────────────
+    document.getElementById('prev').onclick = () => {
+      current.setMonth(current.getMonth() - 1);
+      drawCalendar();
+    };
+    document.getElementById('next').onclick = () => {
+      current.setMonth(current.getMonth() + 1);
+      drawCalendar();
+    };
+    // ── init ─────────────────────────────────────────────────────────
+    window.addEventListener('DOMContentLoaded', () => {
+      drawCalendar();
+    });
+  </script>
+</body>
+</html>

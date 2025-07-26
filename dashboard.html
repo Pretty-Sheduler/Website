@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>My Scheduler — Dashboard</title>
+  <script src="config.js"></script>
+  <title>Pretty Scheduler — Dashboard</title>
   <style>
     body {
       margin: 0;
@@ -19,127 +20,89 @@
       padding: 2rem;
       border-radius: 8px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      width: 380px;
-      max-width: 90%;
+      width: 360px;
+      text-align: center;
     }
     #dashboard h2 {
       margin-top: 0;
       margin-bottom: 1rem;
       font-size: 1.5rem;
-      text-align: center;
     }
-    #user-info p {
+    #userinfo p {
       margin: 0.25rem 0;
       word-break: break-word;
+      text-align: left;
     }
     #logout {
-      display: block;
-      width: 100%;
-      padding: 0.75rem;
       margin-top: 1.5rem;
+      padding: 0.75rem 1rem;
       background: #d9534f;
       color: #fff;
       border: none;
       border-radius: 4px;
-      font-size: 1rem;
       cursor: pointer;
     }
-    #logout:hover {
-      background: #c9302c;
-    }
-    h3 { margin-top: 1rem; }
+    #logout:hover { background: #c9302c; }
   </style>
 </head>
 <body>
   <div id="dashboard" style="display:none;">
     <h2>Welcome to Your Dashboard</h2>
-    <div id="user-info"></div>
+    <div id="userinfo"></div>
     <button id="logout">Log Out</button>
   </div>
 
+  <script src="https://unpkg.com/oidc-client/dist/oidc-client.min.js"></script>
   <script>
-    // ── CONFIG ──────────────────────────────────────────────────────
-    const DOMAIN_PREFIX = 'us-east-2hhsi9dslk';
-    const CLIENT_ID     = '6887lmtltpfidijg07a34bpps4';
-    const REDIRECT_URI  = 'https://pretty-sheduler.github.io/Website/';
-    const LOGOUT_URL =
-      `https://${DOMAIN_PREFIX}.auth.us-east-2.amazoncognito.com/logout` +
-      `?client_id=${CLIENT_ID}` +
-      `&logout_uri=${encodeURIComponent(REDIRECT_URI)}`;
-    // ────────────────────────────────────────────────────────────────
+    const oidcConfig = {
+      authority: 'https://cognito-idp.us-east-2.amazonaws.com/us-east-2_HhsI9dSLk',
+      client_id: '6887lmtltpfidijg07a34bpps4',
+      redirect_uri: window.APP_CONFIG.REDIRECT_URI,
+      post_logout_redirect_uri: window.APP_CONFIG.REDIRECT_URI,
+      response_type: 'code',
+      scope: 'openid email profile',
+    };
+    const mgr = new Oidc.UserManager(oidcConfig);
 
-    // Parse JWT payload (base64url)
-    function parseJwt(token) {
-      const base64Url = token.split('.')[1];
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const json = atob(base64);
-      return JSON.parse(decodeURIComponent(
-        json.split('').map(c =>
-          '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-        ).join('')
-      ));
+    // Handle the redirect back from the auth server
+    async function handleCallback() {
+      if (window.location.search.includes('code=')) {
+        try {
+          await mgr.signinRedirectCallback();
+          // clean up URL
+          window.history.replaceState({}, '', oidcConfig.redirect_uri);
+        } catch (err) {
+          console.error('Callback error', err);
+        }
+      }
     }
 
-    window.addEventListener('DOMContentLoaded', async () => {
-      const idToken     = localStorage.getItem('idToken');
-      const accessToken = localStorage.getItem('accessToken');
-      if (!idToken || !accessToken) {
-        // Not authenticated → send back to login
+    // Show dashboard or redirect to login
+    async function init() {
+      await handleCallback();
+      const user = await mgr.getUser();
+      if (!user) {
+        // Not signed in → go back to login page
         window.location.href = 'index.html';
         return;
       }
 
-      let idPayload;
-      try {
-        idPayload = parseJwt(idToken);
-      } catch (e) {
-        console.error('Invalid ID token', e);
-        localStorage.clear();
-        window.location.href = 'index.html';
-        return;
+      // Render user profile
+      const info = document.getElementById('userinfo');
+      for (const [k, v] of Object.entries(user.profile)) {
+        const p = document.createElement('p');
+        p.innerHTML = `<strong>${k}:</strong> ${v}`;
+        info.appendChild(p);
       }
 
-      // Fetch additional profile via /oauth2/userInfo
-      let userInfo = {};
-      try {
-        const resp = await fetch(
-          `https://${DOMAIN_PREFIX}.auth.us-east-2.amazoncognito.com/oauth2/userInfo`,
-          {
-            headers: { 'Authorization': 'Bearer ' + accessToken }
-          }
-        );
-        if (resp.ok) {
-          userInfo = await resp.json();
-        } else {
-          console.warn('userInfo fetch failed', resp.status);
-        }
-      } catch (e) {
-        console.error('Error fetching userInfo', e);
-      }
-
-      // Render everything
-      const infoDiv = document.getElementById('user-info');
-      let html = '';
-      html += '<h3>ID Token Claims:</h3>';
-      for (const [k, v] of Object.entries(idPayload)) {
-        html += `<p><strong>${k}:</strong> ${JSON.stringify(v)}</p>`;
-      }
-      html += '<h3>User Info Claims:</h3>';
-      for (const [k, v] of Object.entries(userInfo)) {
-        html += `<p><strong>${k}:</strong> ${JSON.stringify(v)}</p>`;
-      }
-      infoDiv.innerHTML = html;
-
-      // Show dashboard
+      // Show the dashboard UI
       document.getElementById('dashboard').style.display = 'block';
 
-      // Logout
-      document.getElementById('logout').onclick = () => {
-        localStorage.removeItem('idToken');
-        localStorage.removeItem('accessToken');
-        window.location.href = LOGOUT_URL;
-      };
-    });
+      // Wire up logout
+      document.getElementById('logout').onclick = () => mgr.signoutRedirect();
+    }
+
+    window.addEventListener('DOMContentLoaded', init);
   </script>
 </body>
 </html>

@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Scheduler — Auth with Cognito (PKCE)</title>
+  <script src="config.js"></script>
+  <title>Pretty Scheduler</title>
   <style>
     body {
       margin: 0;
@@ -61,8 +62,8 @@
     const oidcConfig = {
       authority: 'https://cognito-idp.us-east-2.amazonaws.com/us-east-2_HhsI9dSLk',
       client_id: '6887lmtltpfidijg07a34bpps4',
-      redirect_uri: 'https://pretty-sheduler.github.io/Website/',    // must match Cognito callback
-      post_logout_redirect_uri: 'https://pretty-sheduler.github.io/Website/',
+      redirect_uri: window.APP_CONFIG.REDIRECT_URI,    // must match Cognito callback
+      post_logout_redirect_uri: window.APP_CONFIG.REDIRECT_URI,
       response_type: 'code',
       scope: 'openid email profile',
     };
