@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>My Scheduler — Sign In</title>
+
+  <!-- 1) Amplify core -->
+  <script src="https://unpkg.com/aws-amplify@^4/dist/aws-amplify.min.js"></script>
+  <!-- 2) Amplify UI Web Components -->
+  <script src="https://unpkg.com/@aws-amplify/ui-components@^2/dist/aws-amplify-ui-components.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/@aws-amplify/ui-components@^2/dist/aws-amplify-ui-components.min.css"/>
+
+  <style>
+    body { font-family: sans-serif; margin:0; display:flex; align-items:center; justify-content:center; height:100vh; background:#f0f2f5; }
+    amplify-authenticator { --amplify-primary-color: #007bff; width: 350px; }
+  </style>
+
+  <script>
+    // 3) Configure Amplify to point at your Cognito User Pool
+    //    Replace the values below with your own
+    window.addEventListener('DOMContentLoaded', () => {
+      const { Amplify } = window.aws_amplify;
+      Amplify.configure({
+        Auth: {
+          region: 'us-east-2',
+          userPoolId: 'us-east-2_HhsI9dSLk',
+          userPoolWebClientId: '5sch6q2v6m5doglvndfvqssbhg',
+          oauth: {
+            domain: 'https://us-east-2hhsi9dslk.auth.us-east-2.amazoncognito.com',
+            scope: ['openid','email','profile'],        // minimal scopes for sign‑in
+            redirectSignIn: window.location.origin,     // after login come right back here
+            redirectSignOut: window.location.origin,
+            responseType: 'token'                       // or 'code' if you prefer Authorization Code Grant
+          }
+        }
+      });
+    });
+  </script>
+</head>
+
+<body>
+  <!-- 4) This component handles the entire sign‑up / sign‑in / federated flows -->
+  <amplify-authenticator></amplify-authenticator>
+
+  <script>
+    // 5) Listen for a successful auth event, then redirect to your app
+    document.querySelector('amplify-authenticator')
+      .addEventListener('authStateChange', (evt) => {
+        if (evt.detail.state === 'signedin') {
+          // User is now signed in; you can fetch the JWT and store it
+          window.aws_amplify.Auth.currentSession()
+            .then(session => {
+              const idToken = session.getIdToken().getJwtToken();
+              localStorage.setItem('idToken', idToken);
+              // send them on to your protected dashboard
+              window.location.href = 'dashboard.html';
+            });
+        }
+      });
+  </script>
+</body>
+</html>
