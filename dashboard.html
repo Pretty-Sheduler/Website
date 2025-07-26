@@ -29,6 +29,7 @@
     }
     #user-info p {
       margin: 0.5rem 0;
+      word-break: break-all;
     }
     #logout {
       display: block;
@@ -58,26 +59,25 @@
     const DOMAIN_PREFIX = 'us-east-2hhsi9dslk';
     const CLIENT_ID     = '5sch6q2v6m5doglvndfvqssbhg';
     const REDIRECT_URI  = 'https://pretty-sheduler.github.io/Website/';
-    const LOGOUT_URL = 
-        `https://${DOMAIN_PREFIX}.auth.us-east-2.amazoncognito.com/logout` +
-        `?client_id=${CLIENT_ID}` +
-        `&logout_uri=${encodeURIComponent(REDIRECT_URI)}`;
+    const LOGOUT_URL =
+      `https://${DOMAIN_PREFIX}.auth.us-east-2.amazoncognito.com/logout` +
+      `?client_id=${CLIENT_ID}&logout_uri=${encodeURIComponent(REDIRECT_URI)}`;
 
-    // Parse JWT payload (base64url)  
+    // Parse JWT payload (base64url)
     function parseJwt(token) {
       const base64Url = token.split('.')[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
       const json = atob(base64);
-      return JSON.parse(decodeURIComponent(json.split('').map(c =>
-        '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-      ).join('')));
+      return JSON.parse(decodeURIComponent(
+        json.split('').map(c =>
+          '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+        ).join('')
+      ));
     }
 
-    // On load
     window.addEventListener('DOMContentLoaded', () => {
       const token = localStorage.getItem('idToken');
       if (!token) {
-        // Not logged in → back to login
         window.location.href = 'index.html';
         return;
       }
@@ -92,19 +92,16 @@
         return;
       }
 
-      // Populate user info
+      // Dynamically render every claim in the payload
       const infoDiv = document.getElementById('user-info');
-      infoDiv.innerHTML = `
-        <p><strong>User ID (sub):</strong> ${payload.sub}</p>
-        <p><strong>Email:</strong> ${payload.email}</p>
-        <p><strong>Email Verified:</strong> ${payload.email_verified}</p>
-        <p><strong>Name:</strong> ${payload.name || '—'}</p>
-      `;
+      let html = '';
+      for (const [key, value] of Object.entries(payload)) {
+        html += `<p><strong>${key}:</strong> ${JSON.stringify(value)}</p>`;
+      }
+      infoDiv.innerHTML = html;
 
-      // Show dashboard
       document.getElementById('dashboard').style.display = 'block';
 
-      // Logout handler
       document.getElementById('logout').addEventListener('click', () => {
         localStorage.removeItem('idToken');
         window.location.href = LOGOUT_URL;
