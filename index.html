@@ -3,109 +3,110 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>My Scheduler — Sign In (PKCE)</title>
+  <title>Scheduler — Auth with Cognito (PKCE)</title>
   <style>
-    body { font-family:sans-serif; background:#f0f2f5; margin:0;
-           display:flex; align-items:center; justify-content:center; height:100vh; }
-    #container { background:#fff; padding:2rem; border-radius:8px;
-                 box-shadow:0 2px 10px rgba(0,0,0,0.1); text-align:center; width:320px; }
-    button { padding:0.75rem 1rem; background:#0069d9; color:#fff; border:none;
-             border-radius:4px; cursor:pointer; font-size:1rem; width:100%; }
-    button:hover { background:#0053a6; }
-    .error { color:#d00; margin-top:1rem; }
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #f0f2f5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    #login, #app {
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      text-align: center;
+      width: 320px;
+    }
+    button {
+      margin-top: 1rem;
+      padding: 0.75rem 1rem;
+      font-size: 1rem;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #login button { background: #0069d9; color: white; }
+    #login button:hover { background: #0053a6; }
+    #logout { background: #d9534f; color: white; }
+    #logout:hover { background: #c9302c; }
+    .error { color: #d00; margin-top: 1rem; }
+    #userinfo p { text-align: left; margin: 0.25rem 0; word-break: break-all; }
   </style>
 </head>
 <body>
-  <div id="container">
-    <h2>Sign In</h2>
-    <button id="login">Log in with Email/Google</button>
+
+  <!-- LOGIN SCREEN -->
+  <div id="login" style="display:none;">
+    <h2>Please Sign In</h2>
+    <button id="signin">Log in with Email or Google</button>
     <div id="error" class="error"></div>
   </div>
 
+  <!-- APP SCREEN -->
+  <div id="app" style="display:none;">
+    <h2>Welcome!</h2>
+    <div id="userinfo"></div>
+    <button id="logout">Log Out</button>
+  </div>
+
+  <!-- oidc-client library -->
+  <script src="https://unpkg.com/oidc-client/dist/oidc-client.min.js"></script>
   <script>
-  // ── CONFIG ──────────────────────────────────────────────────────
-    const DOMAIN_PREFIX = 'us-east-2hhsi9dslk';
-    const CLIENT_ID     = '6887lmtltpfidijg07a34bpps4';
-    const REDIRECT_URI  = 'https://pretty-sheduler.github.io/Website/'; 
-  const SCOPES        = 'openid email profile';
-  const AUTHORIZE_URL = `https://${DOMAIN_PREFIX}.auth.us-east-2.amazoncognito.com/oauth2/authorize`;
-  const TOKEN_URL     = `https://${DOMAIN_PREFIX}.auth.us-east-2.amazoncognito.com/oauth2/token`;
-  // ────────────────────────────────────────────────────────────────
-
-  // Helpers for PKCE
-  function base64UrlEncode(buffer) {
-    return btoa(String.fromCharCode(...new Uint8Array(buffer)))
-      .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-  }
-  async function sha256(buffer) {
-    return crypto.subtle.digest('SHA-256', new TextEncoder().encode(buffer));
-  }
-  function generateVerifier() {
-    const array = new Uint8Array(32);
-    crypto.getRandomValues(array);
-    return Array.from(array).map(b => ('00'+b.toString(16)).slice(-2)).join('');
-  }
-
-  document.getElementById('login').onclick = async () => {
-    // 1) Generate and store a code verifier
-    const codeVerifier = generateVerifier();
-    localStorage.setItem('pkce_verifier', codeVerifier);
-
-    // 2) Create a code challenge
-    const challengeBuffer = await sha256(codeVerifier);
-    const codeChallenge  = base64UrlEncode(challengeBuffer);
-
-    // 3) Redirect to Cognito's /authorize
-    const params = new URLSearchParams({
+    // ─── CONFIG ────────────────────────────────────────────────────
+    const oidcConfig = {
+      authority: 'https://cognito-idp.us-east-2.amazonaws.com/us-east-2_HhsI9dSLk',
+      client_id: '6887lmtltpfidijg07a34bpps4',
+      redirect_uri: 'https://pretty-sheduler.github.io/Website/',    // must match Cognito callback
+      post_logout_redirect_uri: 'https://pretty-sheduler.github.io/Website/',
       response_type: 'code',
-      client_id:     CLIENT_ID,
-      redirect_uri:  REDIRECT_URI,
-      scope:         SCOPES,
-      code_challenge_method: 'S256',
-      code_challenge
-    });
-    window.location.href = `${AUTHORIZE_URL}?${params}`;
-  };
+      scope: 'openid email profile',
+    };
+    const mgr = new Oidc.UserManager(oidcConfig);
+    // ───────────────────────────────────────────────────────────────
 
-  // On return from Cognito, parse `?code=…`
-  window.addEventListener('DOMContentLoaded', async () => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.has('code')) {
-      const code = params.get('code');
-      const verifier = localStorage.getItem('pkce_verifier');
-      if (!verifier) {
-        document.getElementById('error').textContent = 'PKCE verifier missing.';
-        return;
-      }
-
-      // 4) Exchange the code for tokens
-      const body = new URLSearchParams({
-        grant_type:    'authorization_code',
-        client_id:     CLIENT_ID,
-        code,
-        redirect_uri:  REDIRECT_URI,
-        code_verifier: verifier
-      });
-      try {
-        const resp = await fetch(TOKEN_URL, {
-          method: 'POST',
-          headers: { 'Content-Type':'application/x-www-form-urlencoded' },
-          body: body.toString()
-        });
-        if (!resp.ok) throw await resp.json();
-        const tokens = await resp.json();
-        // 5) Store tokens and redirect to dashboard
-        localStorage.setItem('idToken',     tokens.id_token);
-        localStorage.setItem('accessToken', tokens.access_token);
-        // clean up URL
-        window.history.replaceState({}, '', REDIRECT_URI);
-        window.location.href = 'dashboard.html';
-      } catch (err) {
-        document.getElementById('error').textContent =
-          err.error_description || JSON.stringify(err);
+    async function handleRedirectCallback() {
+      // If we have a ?code=… in the URL, finish the PKCE code flow
+      if (window.location.search.includes('code=')) {
+        try {
+          await mgr.signinRedirectCallback();
+          // remove code & state from URL
+          window.history.replaceState({}, '', oidcConfig.redirect_uri);
+        } catch (e) {
+          document.getElementById('error').textContent = e.message;
+        }
       }
     }
-  });
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      await handleRedirectCallback();
+
+      const user = await mgr.getUser();
+      if (!user) {
+        // Not signed in: show Login UI
+        document.getElementById('login').style.display = 'block';
+        document.getElementById('signin').onclick = () => mgr.signinRedirect();
+      } else {
+        // Signed in: show App UI
+        document.getElementById('login').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+
+        // Display all claims from the ID token
+        const info = document.getElementById('userinfo');
+        for (const [k, v] of Object.entries(user.profile)) {
+          const p = document.createElement('p');
+          p.innerHTML = `<strong>${k}:</strong> ${v}`;
+          info.appendChild(p);
+        }
+
+        // Logout button
+        document.getElementById('logout').onclick = () => mgr.signoutRedirect();
+      }
+    });
   </script>
 </body>
 </html>
