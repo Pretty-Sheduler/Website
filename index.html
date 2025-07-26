@@ -75,7 +75,10 @@
         const params = parseHash(hash);
         if (params.id_token) {
           // Store the ID token and clear the hash
-          localStorage.setItem('idToken', params.id_token);
+          // after parsing the hash:
+            localStorage.setItem('idToken',     params.id_token);
+            localStorage.setItem('accessToken', params.access_token);
+
           history.replaceState(null, '', REDIRECT_URI);
           // Redirect to your protected app page
           window.location.href = 'dashboard.html';
