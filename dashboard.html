@@ -139,7 +139,7 @@
   <script src="https://unpkg.com/oidc-client/dist/oidc-client.min.js"></script>
   <script>
     const oidcConfig = {
-      authority: window.APP_CONFIG.AWS_DOMAIN, // Cognito authority URL
+      authority: window.APP_CONFIG.AUTHORITY, // Cognito authority URL
       client_id: window.APP_CONFIG.CLIENT_ID,
       redirect_uri: window.APP_CONFIG.REDIRECT_URI,
       post_logout_redirect_uri: window.APP_CONFIG.POST_LOGOUT_URI,

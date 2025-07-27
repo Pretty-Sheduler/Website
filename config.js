@@ -5,5 +5,5 @@ window.APP_CONFIG = {
   AUTHORITY: 'https://cognito-idp.us-east-2.amazonaws.com/us-east-2_HhsI9dSLk',
   SCOPE: 'openid email profile',
   POST_LOGOUT_URI: "https://pretty-scheduler.github.io/Website/",
-  AWS_DOMAIN: 'https://HhsI9dSLk.auth.us-east-2.amazoncognito.com'
+  AWS_DOMAIN: 'https://us-east-2HhsI9dSLk.auth.us-east-2.amazoncognito.com'
 };
