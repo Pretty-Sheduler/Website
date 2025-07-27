@@ -212,7 +212,7 @@
       const user = await mgr.getUser();
       const idToken = user ? user.id_token : null;
       // build logout URL
-      const logoutUrl = new URL(`${window.APP_CONFIG.AWS_DOMAIN}/logout?`);
+      const logoutUrl = new URL(`${window.APP_CONFIG.AUTHORITY}/logout`);
       logoutUrl.searchParams.set('client_id', window.APP_CONFIG.CLIENT_ID);
       logoutUrl.searchParams.set('logout_uri', window.APP_CONFIG.POST_LOGOUT_URI);
       if (idToken) logoutUrl.searchParams.set('id_token_hint', idToken);
