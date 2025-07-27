@@ -5,5 +5,5 @@ window.APP_CONFIG = {
   AUTHORITY: 'https://cognito-idp.us-east-2.amazonaws.com/us-east-2_NAxGjIiVI',
   SCOPE: 'openid email profile',
   POST_LOGOUT_URI: 'https://pretty-sheduler.github.io/Website/',
-  AWS_DOMAIN: 'https://HhsI9dSLk.auth.us-east-2.amazoncognito.com'
+  AWS_DOMAIN: 'https://us-east-2naxgjiivi.auth.us-east-2.amazoncognito.com'
 };
