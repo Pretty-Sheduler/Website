@@ -93,8 +93,7 @@
         document.getElementById('signin').onclick = () => mgr.signinRedirect();
       } else {
         // Signed in: show App UI
-        document.getElementById('login').style.display = 'none';
-        document.getElementById('app').style.display = 'block';
+        window.location.href = 'dashboard.html';
 
         // Display all claims from the ID token
         const info = document.getElementById('userinfo');
