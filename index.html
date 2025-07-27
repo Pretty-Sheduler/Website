@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <script src="config.js"></script>
+  <script src="./config.js"></script>
   <title>Pretty Scheduler - Login</title>
   <style>
     body {
@@ -57,6 +57,10 @@
 
   <!-- oidc-client library -->
   <script src="https://unpkg.com/oidc-client/dist/oidc-client.min.js"></script>
+  <script>
+  console.log('APP_CONFIG', window.APP_CONFIG);          // should show the object
+  console.log('authority =', window.APP_CONFIG?.AUTHORITY); // should show the URL
+</script>
   <script>
     // ─── CONFIG ────────────────────────────────────────────────────
     const oidcConfig = {

@@ -1,4 +1,4 @@
-// config.js
+
 window.APP_CONFIG = {
   REDIRECT_URI: 'https://pretty-sheduler.github.io/Website/',
   CLIENT_ID: '6887lmtltpfidijg07a34bpps4',

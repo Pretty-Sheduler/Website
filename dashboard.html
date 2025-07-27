@@ -219,6 +219,8 @@
 
       // clear local OIDC state
       mgr.removeUser();
+      localStorage.removeItem('idToken');
+      localStorage.removeItem('accessToken');
       // redirect to Cognito logout
       window.location.href = logoutUrl.toString();
     }
