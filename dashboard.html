@@ -207,6 +207,22 @@
       };
     }
 
+        async function doLogout() {
+      // fetch current user to grab the id_token
+      const user = await mgr.getUser();
+      const idToken = user ? user.id_token : null;
+      // build logout URL
+      const logoutUrl = new URL(`${authority}/logout`);
+      logoutUrl.searchParams.set('client_id', client_id);
+      logoutUrl.searchParams.set('logout_uri', post_logout_redirect_uri);
+      if (idToken) logoutUrl.searchParams.set('id_token_hint', idToken);
+
+      // clear local OIDC state
+      mgr.removeUser();
+      // redirect to Cognito logout
+      window.location.href = logoutUrl.toString();
+    }
+
     async function init() {
       await handleCallback();
       const user = await mgr.getUser();
