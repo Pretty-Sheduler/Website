@@ -56,32 +56,56 @@
       flex: 1;
       padding: 2rem;
       overflow-y: auto;
+      background: #fff;
     }
     #main h2 {
       margin-top: 0;
       font-size: 1.5rem;
+      display: inline-block;
     }
-    /* Availability panel */
-    .action-list {
-      margin: 1rem 0;
-      list-style: none;
-      padding: 0;
-    }
-    .action-list li {
-      margin: 0.5rem 0;
-    }
-    .action-list button {
-      width: 100%;
-      padding: 0.75rem;
+    #btn-create-event {
+      float: right;
+      padding: 0.5rem 1rem;
       background: #0069d9;
       color: #fff;
       border: none;
       border-radius: 4px;
-      font-size: 1rem;
       cursor: pointer;
+      font-size: 1rem;
     }
-    .action-list button:hover {
+    #btn-create-event:hover {
       background: #0053a6;
+    }
+    hr {
+      margin: 1.5rem 0;
+      border: none;
+      border-bottom: 1px solid #ddd;
+    }
+    .event-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .event-list li {
+      padding: 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin-bottom: 0.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .event-list button {
+      background: #28a745;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 0.25rem 0.5rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .event-list button:hover {
+      background: #218838;
     }
     /* Logout */
     #logout {
@@ -103,13 +127,13 @@
   <div id="sidebar">
     <h2>Menu</h2>
     <ul id="menu">
-      <li><button id="menu-availability" class="active">Availability</button></li>
-      <!-- future menu items -->
+      <li><button id="menu-events" class="active">Events</button></li>
+      <li><button id="menu-availability">Availability</button></li>
     </ul>
     <button id="logout">Log Out</button>
   </div>
   <div id="main">
-    <!-- dynamic content -->
+    <!-- content injected here -->
   </div>
 
   <script src="https://unpkg.com/oidc-client/dist/oidc-client.min.js"></script>
@@ -117,8 +141,8 @@
     const oidcConfig = {
       authority: 'https://cognito-idp.us-east-2.amazonaws.com/us-east-2_HhsI9dSLk',
       client_id: '6887lmtltpfidijg07a34bpps4',
-      redirect_uri: window.APP_CONFIG.redirect_uri,
-      post_logout_redirect_uri: window.APP_CONFIG.redirect_uri,
+      redirect_uri: window.APP_CONFIG.REDIRECT_URI,
+      post_logout_redirect_uri: window.APP_CONFIG.REDIRECT_URI,
       response_type: 'code',
       scope: 'openid email profile',
     };
@@ -135,7 +159,37 @@
       }
     }
 
-    // Render the Availability panel
+    function setActiveMenu(id) {
+      document.querySelectorAll('#menu button').forEach(btn => {
+        btn.classList.toggle('active', btn.id === id);
+      });
+    }
+
+    function renderEvents() {
+      const main = document.getElementById('main');
+      main.innerHTML = `
+        <h2>Events</h2>
+        <button id="btn-create-event">Create Event</button>
+        <hr />
+        <ul class="event-list" id="event-list"></ul>
+      `;
+      document.getElementById('btn-create-event').onclick = () => {
+        alert('Show create-event form here');
+      };
+
+      // TODO: fetch real events. For demo, stub a couple:
+      const demoEvents = [
+        { id: '1', name: '30‑Minute Chat' },
+        { id: '2', name: 'Team Sync' }
+      ];
+      const list = document.getElementById('event-list');
+      demoEvents.forEach(ev => {
+        const li = document.createElement('li');
+        li.innerHTML = `${ev.name} <button onclick="alert('Edit ${ev.name}')">Edit</button>`;
+        list.appendChild(li);
+      });
+    }
+
     function renderAvailability() {
       const main = document.getElementById('main');
       main.innerHTML = `
@@ -153,13 +207,6 @@
       };
     }
 
-    // Highlight active menu
-    function setActiveMenu(id) {
-      document.querySelectorAll('#menu button').forEach(btn => {
-        btn.classList.toggle('active', btn.id === id);
-      });
-    }
-
     async function init() {
       await handleCallback();
       const user = await mgr.getUser();
@@ -168,17 +215,22 @@
         return;
       }
 
-      // Wire up menu
+      document.getElementById('menu-events').onclick = () => {
+        setActiveMenu('menu-events');
+        renderEvents();
+      };
       document.getElementById('menu-availability').onclick = () => {
         setActiveMenu('menu-availability');
         renderAvailability();
       };
-
-      // Wire up logout
-      document.getElementById('logout').onclick = () => mgr.signoutRedirect();
-
-      // Initial view
-      renderAvailability();
+      document.getElementById('logout').onclick = () => {
+        // Tell Cognito to send the user back to index.html
+        mgr.signoutRedirect({
+          post_logout_redirect_uri: window.location.origin + '/index.html'
+        });
+      };
+      // Default view
+      renderEvents();
     }
 
     window.addEventListener('DOMContentLoaded', init);
