@@ -10,46 +10,106 @@
       margin: 0;
       font-family: sans-serif;
       background: #f0f2f5;
+      height: 100vh;
       display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
     }
-    #dashboard {
+    /* Sidebar */
+    #sidebar {
+      width: 200px;
       background: #fff;
-      padding: 2rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      width: 360px;
+      border-right: 1px solid #ddd;
+      display: flex;
+      flex-direction: column;
+      padding: 1rem;
+    }
+    #sidebar h2 {
+      font-size: 1.2rem;
+      margin: 0 0 1rem;
       text-align: center;
     }
-    #dashboard h2 {
+    #menu {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      flex: 1;
+    }
+    #menu li {
+      margin: 0.5rem 0;
+    }
+    #menu button {
+      width: 100%;
+      background: none;
+      border: none;
+      text-align: left;
+      padding: 0.5rem;
+      font-size: 1rem;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    #menu button:hover,
+    #menu button.active {
+      background: #e6f0ff;
+    }
+
+    /* Main content */
+    #main {
+      flex: 1;
+      padding: 2rem;
+      overflow-y: auto;
+    }
+    #main h2 {
       margin-top: 0;
-      margin-bottom: 1rem;
       font-size: 1.5rem;
     }
-    #userinfo p {
-      margin: 0.25rem 0;
-      word-break: break-word;
-      text-align: left;
+    /* Availability panel */
+    .action-list {
+      margin: 1rem 0;
+      list-style: none;
+      padding: 0;
     }
+    .action-list li {
+      margin: 0.5rem 0;
+    }
+    .action-list button {
+      width: 100%;
+      padding: 0.75rem;
+      background: #0069d9;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    .action-list button:hover {
+      background: #0053a6;
+    }
+    /* Logout */
     #logout {
-      margin-top: 1.5rem;
-      padding: 0.75rem 1rem;
+      margin-top: 2rem;
+      padding: 0.5rem;
       background: #d9534f;
       color: #fff;
       border: none;
       border-radius: 4px;
+      width: 100%;
       cursor: pointer;
     }
-    #logout:hover { background: #c9302c; }
+    #logout:hover {
+      background: #c9302c;
+    }
   </style>
 </head>
 <body>
-  <div id="dashboard" style="display:none;">
-    <h2>Welcome to Your Dashboard</h2>
-    <div id="userinfo"></div>
+  <div id="sidebar">
+    <h2>Menu</h2>
+    <ul id="menu">
+      <li><button id="menu-availability" class="active">Availability</button></li>
+      <!-- future menu items -->
+    </ul>
     <button id="logout">Log Out</button>
+  </div>
+  <div id="main">
+    <!-- dynamic content -->
   </div>
 
   <script src="https://unpkg.com/oidc-client/dist/oidc-client.min.js"></script>
@@ -57,49 +117,68 @@
     const oidcConfig = {
       authority: 'https://cognito-idp.us-east-2.amazonaws.com/us-east-2_HhsI9dSLk',
       client_id: '6887lmtltpfidijg07a34bpps4',
-      redirect_uri: window.APP_CONFIG.REDIRECT_URI,
-      post_logout_redirect_uri: window.APP_CONFIG.REDIRECT_URI,
+      redirect_uri: window.APP_CONFIG.redirect_uri,
+      post_logout_redirect_uri: window.APP_CONFIG.redirect_uri,
       response_type: 'code',
       scope: 'openid email profile',
     };
     const mgr = new Oidc.UserManager(oidcConfig);
 
-    // Handle the redirect back from the auth server
     async function handleCallback() {
       if (window.location.search.includes('code=')) {
         try {
           await mgr.signinRedirectCallback();
-          // clean up URL
-          window.history.replaceState({}, '', oidcConfig.redirect_uri);
+          history.replaceState({}, '', oidcConfig.redirect_uri);
         } catch (err) {
           console.error('Callback error', err);
         }
       }
     }
 
-    // Show dashboard or redirect to login
+    // Render the Availability panel
+    function renderAvailability() {
+      const main = document.getElementById('main');
+      main.innerHTML = `
+        <h2>Availability</h2>
+        <ul class="action-list">
+          <li><button id="btn-custom">Change Custom Availability</button></li>
+          <li><button id="btn-google">Link with Google Calendar</button></li>
+        </ul>
+      `;
+      document.getElementById('btn-custom').onclick = () => {
+        alert('Custom availability UI goes here');
+      };
+      document.getElementById('btn-google').onclick = () => {
+        mgr.signinRedirect({ scope: 'openid email profile aws.cognito.signin.user.admin' });
+      };
+    }
+
+    // Highlight active menu
+    function setActiveMenu(id) {
+      document.querySelectorAll('#menu button').forEach(btn => {
+        btn.classList.toggle('active', btn.id === id);
+      });
+    }
+
     async function init() {
       await handleCallback();
       const user = await mgr.getUser();
       if (!user) {
-        // Not signed in → go back to login page
         window.location.href = 'index.html';
         return;
       }
 
-      // Render user profile
-      const info = document.getElementById('userinfo');
-      for (const [k, v] of Object.entries(user.profile)) {
-        const p = document.createElement('p');
-        p.innerHTML = `<strong>${k}:</strong> ${v}`;
-        info.appendChild(p);
-      }
-
-      // Show the dashboard UI
-      document.getElementById('dashboard').style.display = 'block';
+      // Wire up menu
+      document.getElementById('menu-availability').onclick = () => {
+        setActiveMenu('menu-availability');
+        renderAvailability();
+      };
 
       // Wire up logout
       document.getElementById('logout').onclick = () => mgr.signoutRedirect();
+
+      // Initial view
+      renderAvailability();
     }
 
     window.addEventListener('DOMContentLoaded', init);
