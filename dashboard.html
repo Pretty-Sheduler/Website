@@ -223,7 +223,8 @@
         setActiveMenu('menu-availability');
         renderAvailability();
       };
-      const signOutRedirect = () => {
+      const signOutRedirect = async () => {
+        await auth.removeUser(); 
         const idToken = user?.id_token;        // 👈 current ID‑token
         const url =
           `${window.APP_CONFIG.AWS_DOMAIN}/logout?` +
