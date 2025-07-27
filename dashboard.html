@@ -136,28 +136,47 @@
     <!-- content injected here -->
   </div>
 
-  <script src="https://unpkg.com/oidc-client/dist/oidc-client.min.js"></script>
-  <script>
-    const oidcConfig = {
-      authority: window.APP_CONFIG.AUTHORITY, // Cognito authority URL
-      client_id: window.APP_CONFIG.CLIENT_ID,
-      redirect_uri: window.APP_CONFIG.REDIRECT_URI,
-      post_logout_redirect_uri: window.APP_CONFIG.POST_LOGOUT_URI,
-      response_type: 'code',
-      scope: 'openid email profile',
-    };
-    const mgr = new Oidc.UserManager(oidcConfig);
+  <<script src="https://unpkg.com/oidc-client/dist/oidc-client.min.js"></script>
+<script>
+  const oidcConfig = {
+    authority:               window.APP_CONFIG.AUTHORITY,
+    client_id:               window.APP_CONFIG.CLIENT_ID,
+    redirect_uri:            window.APP_CONFIG.REDIRECT_URI,
+    post_logout_redirect_uri: window.APP_CONFIG.POST_LOGOUT_URI,
+    response_type: 'code',
+    scope: 'openid email profile',
+  };
+  const mgr = new Oidc.UserManager(oidcConfig);
 
-    async function handleCallback() {
-      if (window.location.search.includes('code=')) {
-        try {
-          await mgr.signinRedirectCallback();
-          history.replaceState({}, '', oidcConfig.redirect_uri);
-        } catch (err) {
-          console.error('Callback error', err);
-        }
-      }
+  async function handleCallback() {
+    if (window.location.search.includes('code=')) {
+      try {
+        await mgr.signinRedirectCallback();
+        history.replaceState({}, '', oidcConfig.redirect_uri);
+      } catch (err) { console.error(err); }
     }
+  }
+
+  /* -------   CUSTOM SIGN‑OUT   ------- */
+  async function customSignOut() {
+    // 1. Get the current user (to grab the ID‑token)
+    const currentUser = await mgr.getUser();
+    const idToken     = currentUser?.id_token;
+
+    // 2. Remove tokens from local/session storage
+    await mgr.removeUser();           // ensures SPA won’t auto‑login again
+
+    // 3. Build Hosted‑UI /logout URL
+    const url =
+      `${window.APP_CONFIG.AWS_DOMAIN}/logout?` +
+      `client_id=${window.APP_CONFIG.CLIENT_ID}` +
+      `&logout_uri=${encodeURIComponent(window.APP_CONFIG.POST_LOGOUT_URI)}` +
+      (idToken ? `&id_token_hint=${idToken}` : '');
+
+    // 4. Send the browser there
+    window.location.href = url;
+  }
+
 
     function setActiveMenu(id) {
       document.querySelectorAll('#menu button').forEach(btn => {
@@ -207,39 +226,22 @@
       };
     }
 
-    async function init() {
-      await handleCallback();
-      const user = await mgr.getUser();
-      if (!user) {
-        window.location.href = 'index.html';
-        return;
-      }
+     async function init() {
+    await handleCallback();
+    const user = await mgr.getUser();
+    if (!user) { window.location.href = 'index.html'; return; }
 
-      document.getElementById('menu-events').onclick = () => {
-        setActiveMenu('menu-events');
-        renderEvents();
-      };
-      document.getElementById('menu-availability').onclick = () => {
-        setActiveMenu('menu-availability');
-        renderAvailability();
-      };
-      const signOutRedirect = async () => {
-        await auth.removeUser(); 
-        const idToken = user?.id_token;        // 👈 current ID‑token
-        const url =
-          `${window.APP_CONFIG.AWS_DOMAIN}/logout?` +
-          `client_id=${window.APP_CONFIG.CLIENT_ID}` +
-          `&logout_uri=${encodeURIComponent(window.APP_CONFIG.POST_LOGOUT_URI)}`;
-          window.location.href = url;
-      };
-      document.getElementById('logout').onclick = () => {
-        signOutRedirect();
-      };
-      // Default view
-      renderEvents();
-    }
+    // menu wiring
+    document.getElementById('menu-events').onclick       = () => { setActiveMenu('menu-events');       renderEvents();       };
+    document.getElementById('menu-availability').onclick = () => { setActiveMenu('menu-availability'); renderAvailability(); };
 
-    window.addEventListener('DOMContentLoaded', init);
+    // custom logout wiring
+    document.getElementById('logout').onclick = customSignOut;
+
+    renderEvents(); // default view
+  }
+
+  window.addEventListener('DOMContentLoaded', init);
   </script>
 </body>
 </html>
