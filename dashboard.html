@@ -228,8 +228,7 @@
         const url =
           `${window.APP_CONFIG.AWS_DOMAIN}/logout?` +
           `client_id=${window.APP_CONFIG.CLIENT_ID}` +
-          `&logout_uri=${encodeURIComponent(window.APP_CONFIG.POST_LOGOUT_URI)}` +
-          (idToken ? `&id_token_hint=${idToken}` : "");
+          `&logout_uri=${encodeURIComponent(window.APP_CONFIG.POST_LOGOUT_URI)}`;
           window.location.href = url;
       };
       document.getElementById('logout').onclick = () => {
