@@ -207,7 +207,7 @@
       };
     }
 
-        async function doLogout() {
+    async function doLogout() {
       // fetch current user to grab the id_token
       const user = await mgr.getUser();
       const idToken = user ? user.id_token : null;
@@ -239,7 +239,7 @@
         setActiveMenu('menu-availability');
         renderAvailability();
       };
-      document.getElementById('logout').onclick = () => mgr.signoutRedirect();
+       document.getElementById('logout').onclick = doLogout;
 
       // Default view
       renderEvents();
